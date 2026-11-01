@@ -3058,6 +3058,7 @@ dependencies = [
  "pumpkin-auth",
  "pumpkin-command",
  "pumpkin-config",
+ "pumpkin-cow-world",
  "pumpkin-data",
  "pumpkin-gametest",
  "pumpkin-inventory",
@@ -3090,6 +3091,21 @@ dependencies = [
  "uuid",
  "webrtc",
  "xxhash-rust",
+]
+
+[[package]]
+name = "pumpkin-cow-world"
+version = "0.2.1+26.3-26.60"
+dependencies = [
+ "bytes",
+ "dashmap",
+ "parking_lot",
+ "pumpkin-data",
+ "pumpkin-nbt",
+ "pumpkin-util",
+ "pumpkin-world",
+ "rustc-hash",
+ "tracing",
 ]
 
 [[package]]

@@ -80,6 +80,8 @@ world plugin {
     import entity-statuses;
     /// Provides gametest framework for automated testing.
     import gametest;
+    /// Provides zero-copy Copy-on-Write world management.
+    import cow-world;
 
     // --- Plugin-provided exports ---
 

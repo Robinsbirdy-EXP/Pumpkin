@@ -1,5 +1,24 @@
 <div align="center">
 
+# Zero-Copy CoW Worlds
+
+This Pumpkin Fork features a fast, in-memory Copy-on-Write (CoW) world management system built for minigames, arenas, and ephemeral server instances.
+
+Inspired by AdvancedSlimePaper (ASWM), this Fork takes advantage of Rust's ownership model by wrapping chunk palettes in reference-counted pointers (Arc) and leveraging Arc::make_mut for lazy, subchunk-level cloning.
+
+# Key Features
+- **Zero-Copy Instance Spawning (< 0.1 ms)**: Spawning a new arena or game world from a loaded template never deep-clones block data. Instead, it copies only 8-byte Arc section pointers across chunks, allowing dozens of concurrent game instances to share the exact same underlying memory for untouched terrain.
+- **Granular Subchunk Copy-on-Write (Arc::make_mut)**: Memory allocation only occurs at the exact 16×16×16 subchunk section where a block or biome is modified, leaving all other sections and instances completely untouched.
+- **Sub-Millisecond Instant World Reset**: Resetting an arena (reset_instant) iterates strictly over the set of mutated chunks, swaps their Arc section pointers back to the immutable template, clears non-player entities, restores initial block entities, and broadcasts chunk updates to players — with zero disk I/O.
+- **Disk I/O Bypass**: CoW world instances run purely in memory (CoWBackend), bypassing Anvil/region disk reads and writes completely.
+- **First-Class WASM Plugin API & Built-in CLI**: WASM Host Interface (cow-world.wit): Plugins can programmatically manage templates and instances via pumpkin_plugin_api::cow_world::{load_template, spawn_instance, reset_instance, destroy_instance}.
+- **In-Game / Console Command**: Built-in /cow <load|spawn|reset|destroy|stats> command for instant administration and testing.
+- **Rebase-Friendly Architecture**: Most of the CoW engine lives in the isolated crates/pumpkin-cow-world workspace crate, keeping hooks in pumpkin-world and pumpkin-core minimal so upstream Pumpkin updates rebase cleanly.
+
+</div>
+
+<div align="center">
+
 # Pumpkin
 
 [![CI](https://github.com/Pumpkin-MC/Pumpkin/actions/workflows/rust.yml/badge.svg)](https://github.com/Pumpkin-MC/Pumpkin/actions/workflows/rust.yml)

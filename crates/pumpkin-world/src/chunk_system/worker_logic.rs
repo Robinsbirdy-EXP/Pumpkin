@@ -122,6 +122,18 @@ pub async fn io_read_work(
             }
         }
 
+        if let Some(cow) = level.cow_backend.load().as_ref() {
+            for pos in batch {
+                let chunk = cow
+                    .fetch_chunk(pos)
+                    .unwrap_or_else(|| crate::chunk::ChunkData::empty_sync(pos.x, pos.y));
+                if send.send((pos, RecvChunk::IO(Chunk::Level(chunk)))).is_err() {
+                    break;
+                }
+            }
+            continue;
+        }
+
         let (t_send, mut t_recv) = tokio::sync::mpsc::channel(1000);
 
         let batch_len = batch.len();
@@ -203,6 +215,9 @@ pub async fn io_write_work(
         let positions = data.iter().map(|(pos, _)| *pos).collect::<Vec<_>>();
         let level_for_upgrade = level.clone();
         let upgrade_result = run_blocking(move || {
+            if level_for_upgrade.is_cow_world() {
+                return Vec::new();
+            }
             let mut vec = Vec::with_capacity(data.len());
             for (pos, chunk) in data {
                 match chunk {
@@ -223,10 +238,11 @@ pub async fn io_write_work(
         .await;
         let upgrade_failed = match upgrade_result {
             Ok(vec) => {
-                if let Err(e) = level
-                    .chunk_saver
-                    .save_chunks(&level.level_folder, vec)
-                    .await
+                if !vec.is_empty()
+                    && let Err(e) = level
+                        .chunk_saver
+                        .save_chunks(&level.level_folder, vec)
+                        .await
                 {
                     error!("Failed to save chunks: {:?}", e);
                 }

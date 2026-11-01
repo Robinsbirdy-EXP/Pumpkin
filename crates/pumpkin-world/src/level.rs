@@ -58,6 +58,11 @@ pub type ChunkSaver = LevelFileIO<ChunkData>;
 
 pub type EntitySaver = LevelFileIO<ChunkEntityData>;
 
+pub trait CoWBackend: Send + Sync {
+    fn fetch_chunk(&self, pos: Vector2<i32>) -> Option<SyncChunk>;
+    fn on_chunk_mutated(&self, pos: Vector2<i32>, section_idx: usize, chunk: &SyncChunk);
+}
+
 /// The `Level` module provides functionality for working with chunks within or outside a Minecraft world.
 ///
 /// Key features include:
@@ -70,6 +75,7 @@ pub type EntitySaver = LevelFileIO<ChunkEntityData>;
 pub struct Level {
     pub seed: Seed,
     pub world_portal: ArcSwap<Option<Arc<dyn WorldPortalExt>>>,
+    pub cow_backend: ArcSwap<Option<Arc<dyn CoWBackend>>>,
     pub level_folder: Arc<LevelFolder>,
     pub lighting_config: LightingEngineConfig,
 
@@ -295,6 +301,7 @@ impl Level {
         let level_ref = Arc::new(Self {
             seed,
             world_portal: ArcSwap::new(Arc::new(None)),
+            cow_backend: ArcSwap::new(Arc::new(None)),
             world_gen: ArcSwap::new(world_gen),
             level_folder,
             lighting_config: level_config.lighting,
@@ -340,6 +347,16 @@ impl Level {
 
     pub fn set_world_gen(&self, generator: Arc<WorldGenerator>) {
         self.world_gen.store(generator);
+    }
+
+    pub fn set_cow_backend(&self, backend: Option<Arc<dyn CoWBackend>>) {
+        self.cow_backend.store(Arc::new(backend));
+        self.save_enabled.store(false, Ordering::Relaxed);
+    }
+
+    #[must_use]
+    pub fn is_cow_world(&self) -> bool {
+        self.cow_backend.load().is_some()
     }
 
     #[must_use]
@@ -435,6 +452,11 @@ impl Level {
         self.tasks.wait().await;
         self.chunk_system_tasks.wait().await;
 
+        if self.is_cow_world() {
+            self.loaded_entity_chunks.clear();
+            return;
+        }
+
         // save all chunks currently in memory
         let chunks_to_write = self
             .loaded_entity_chunks
@@ -453,6 +475,9 @@ impl Level {
 
     /// Writes region files whose saved chunks have waited long enough.
     pub async fn flush_due_regions(&self) {
+        if self.is_cow_world() {
+            return;
+        }
         self.chunk_saver.flush_due().await;
         self.entity_saver.flush_due().await;
     }
@@ -690,6 +715,12 @@ impl Level {
     }
 
     async fn fetch_chunk(self: &Arc<Self>, pos: Vector2<i32>) -> SyncChunk {
+        if let Some(cow) = self.cow_backend.load().as_ref()
+            && let Some(chunk) = cow.fetch_chunk(pos)
+        {
+            return chunk;
+        }
+
         let recv = self.chunk_listener.add_single_chunk_listener(pos);
 
         {
@@ -721,6 +752,9 @@ impl Level {
         &self,
         pos: Vector2<i32>,
     ) -> Result<(SyncEntityChunk, bool), ChunkReadingError> {
+        if self.is_cow_world() {
+            return Err(ChunkReadingError::ChunkNotExist);
+        }
         let (tx, mut rx) = tokio::sync::mpsc::channel(1);
         self.entity_saver
             .fetch_chunks(&self.level_folder, &[pos], tx)
@@ -866,6 +900,10 @@ impl Level {
             );
             if replaced_block_state_id != block_state_id {
                 chunk.mark_dirty(true);
+                if let Some(cow) = self.cow_backend.load().as_ref() {
+                    let y_rel = (relative.y - chunk.section.min_y).max(0) as usize;
+                    cow.on_chunk_mutated(chunk_coordinate, y_rel / 16, chunk);
+                }
             }
             replaced_block_state_id
         })
@@ -873,7 +911,7 @@ impl Level {
     }
 
     pub async fn write_chunks(&self, chunks_to_write: Vec<(Vector2<i32>, SyncChunk)>) {
-        if chunks_to_write.is_empty() {
+        if chunks_to_write.is_empty() || self.is_cow_world() {
             return;
         }
 
@@ -890,7 +928,7 @@ impl Level {
     }
 
     pub async fn write_entity_chunks(&self, chunks_to_write: Vec<(Vector2<i32>, SyncEntityChunk)>) {
-        if chunks_to_write.is_empty() {
+        if chunks_to_write.is_empty() || self.is_cow_world() {
             return;
         }
 

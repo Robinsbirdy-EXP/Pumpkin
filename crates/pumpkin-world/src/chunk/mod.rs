@@ -105,10 +105,10 @@ pub struct ChunkEntityData {
 /// - Subchunks: 24 separate subchunks are stored.
 pub struct ChunkSections {
     pub count: usize,
-    pub block_sections: RwLock<Box<[BlockPalette]>>,
+    pub block_sections: RwLock<Box<[std::sync::Arc<BlockPalette>]>>,
     pub random_tick_sections: RwLock<Option<Box<[RandomTickSectionCache]>>>,
     pub randomly_ticking_mask: std::sync::atomic::AtomicU32,
-    pub biome_sections: RwLock<Box<[BiomePalette]>>,
+    pub biome_sections: RwLock<Box<[std::sync::Arc<BiomePalette>]>>,
     pub min_y: i32,
 }
 
@@ -307,7 +307,7 @@ impl Default for ChunkHeightmaps {
 impl ChunkSections {
     #[must_use]
     pub fn build_random_tick_sections_cache(
-        block_sections: &[BlockPalette],
+        block_sections: &[std::sync::Arc<BlockPalette>],
     ) -> (Option<Box<[RandomTickSectionCache]>>, u32) {
         let mut mask = 0;
         let mut has_ticks = false;
@@ -338,10 +338,12 @@ impl ChunkSections {
 
     #[must_use]
     pub fn new(num_sections: usize, min_y: i32) -> Self {
-        let block_sections = vec![BlockPalette::default(); num_sections].into_boxed_slice();
+        let block_sections =
+            vec![std::sync::Arc::new(BlockPalette::default()); num_sections].into_boxed_slice();
         let (random_tick_sections, randomly_ticking_mask) =
             Self::build_random_tick_sections_cache(&block_sections);
-        let biome_sections = vec![BiomePalette::default(); num_sections].into_boxed_slice();
+        let biome_sections =
+            vec![std::sync::Arc::new(BiomePalette::default()); num_sections].into_boxed_slice();
 
         Self {
             count: num_sections,
@@ -354,9 +356,9 @@ impl ChunkSections {
     }
 
     #[must_use]
-    pub(crate) fn from_palettes(
-        block_sections: Box<[BlockPalette]>,
-        biome_sections: Box<[BiomePalette]>,
+    pub fn from_arc_palettes(
+        block_sections: Box<[std::sync::Arc<BlockPalette>]>,
+        biome_sections: Box<[std::sync::Arc<BiomePalette>]>,
         min_y: i32,
     ) -> Self {
         assert_eq!(
@@ -376,6 +378,25 @@ impl ChunkSections {
             biome_sections: RwLock::new(biome_sections),
             min_y,
         }
+    }
+
+    #[must_use]
+    pub(crate) fn from_palettes(
+        block_sections: Box<[BlockPalette]>,
+        biome_sections: Box<[BiomePalette]>,
+        min_y: i32,
+    ) -> Self {
+        let block_sections = Vec::from(block_sections)
+            .into_iter()
+            .map(std::sync::Arc::new)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        let biome_sections = Vec::from(biome_sections)
+            .into_iter()
+            .map(std::sync::Arc::new)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+        Self::from_arc_palettes(block_sections, biome_sections, min_y)
     }
 
     #[must_use]
@@ -514,8 +535,12 @@ impl ChunkSections {
             if !condition(section.get(relative_x, relative_y, relative_z)) {
                 return None;
             }
-            let replaced_block_state_id =
-                section.set(relative_x, relative_y, relative_z, block_state_id);
+            let replaced_block_state_id = std::sync::Arc::make_mut(section).set(
+                relative_x,
+                relative_y,
+                relative_z,
+                block_state_id,
+            );
             if replaced_block_state_id == block_state_id {
                 return Some(replaced_block_state_id);
             }
@@ -588,7 +613,7 @@ impl ChunkSections {
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .get_mut(section_index)
         {
-            section.set(relative_x, relative_y, relative_z, biome_id);
+            std::sync::Arc::make_mut(section).set(relative_x, relative_y, relative_z, biome_id);
         }
     }
 
@@ -733,7 +758,8 @@ impl ChunkData {
             let sub_y = rel_y % BlockPalette::SIZE;
 
             if let Some(section) = sections.get_mut(section_index) {
-                let replaced_id = section.set(rel_x, sub_y, rel_z, new_state_id);
+                let replaced_id =
+                    std::sync::Arc::make_mut(section).set(rel_x, sub_y, rel_z, new_state_id);
                 if replaced_id != new_state_id {
                     modified = true;
                     changed_columns.insert((rel_x, rel_z));
@@ -987,8 +1013,11 @@ mod tests {
 
     #[test]
     fn random_tick_cache_initializes_from_palette_contents() {
-        let mut sections = vec![BlockPalette::default(), BlockPalette::default()];
-        sections[1].set(0, 0, 0, Block::LAVA.default_state.id);
+        let mut sections = vec![
+            std::sync::Arc::new(BlockPalette::default()),
+            std::sync::Arc::new(BlockPalette::default()),
+        ];
+        std::sync::Arc::make_mut(&mut sections[1]).set(0, 0, 0, Block::LAVA.default_state.id);
 
         let (cache, _mask) = ChunkSections::build_random_tick_sections_cache(&sections);
         let cache = cache.unwrap();

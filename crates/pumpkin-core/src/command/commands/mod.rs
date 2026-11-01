@@ -15,6 +15,7 @@ mod bossbar;
 mod clear;
 mod clone;
 mod compute;
+mod cow;
 mod damage;
 mod data;
 mod datapack;
@@ -198,6 +199,7 @@ pub fn default_dispatcher(
     pardon::register(&mut dispatcher, registry);
     pardonip::register(&mut dispatcher, registry);
     whitelist::register(&mut dispatcher, registry);
+    cow::register(&mut dispatcher, registry);
 
     apply_command_overrides(&mut dispatcher, registry, commands_config);
 

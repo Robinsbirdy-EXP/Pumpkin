@@ -491,6 +491,46 @@ impl pumpkin::plugin::game_events::Host for PluginHostState {}
 impl pumpkin::plugin::potions::Host for PluginHostState {}
 impl pumpkin::plugin::entity_statuses::Host for PluginHostState {}
 
+impl pumpkin::plugin::cow_world::Host for PluginHostState {
+    fn load_template(&mut self, template_name: String) -> wasmtime::Result<Result<(), String>> {
+        let server = self
+            .server
+            .as_ref()
+            .ok_or_else(|| wasmtime::Error::msg("Server not available"))?;
+        Ok(server.cow_load_template(&template_name))
+    }
+
+    fn spawn_instance(
+        &mut self,
+        template_name: String,
+        instance_id: String,
+    ) -> wasmtime::Result<Result<(), String>> {
+        let server = self
+            .server
+            .as_ref()
+            .ok_or_else(|| wasmtime::Error::msg("Server not available"))?;
+        Ok(server
+            .cow_spawn_instance(&template_name, &instance_id)
+            .map(|_| ()))
+    }
+
+    fn reset_instance(&mut self, instance_id: String) -> wasmtime::Result<Result<u32, String>> {
+        let server = self
+            .server
+            .as_ref()
+            .ok_or_else(|| wasmtime::Error::msg("Server not available"))?;
+        Ok(server.cow_reset_instance(&instance_id))
+    }
+
+    fn destroy_instance(&mut self, instance_id: String) -> wasmtime::Result<Result<(), String>> {
+        let server = self
+            .server
+            .as_ref()
+            .ok_or_else(|| wasmtime::Error::msg("Server not available"))?;
+        Ok(server.cow_destroy_instance(&instance_id))
+    }
+}
+
 pub fn add_to_linker(linker: &mut Linker<PluginHostState>) -> wasmtime::Result<()> {
     Plugin::add_to_linker::<_, HasSelf<_>>(linker, |state: &mut PluginHostState| state)?;
     Ok(())

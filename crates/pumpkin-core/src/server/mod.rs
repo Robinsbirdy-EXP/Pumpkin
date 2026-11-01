@@ -565,6 +565,117 @@ impl Server {
         Ok(())
     }
 
+    pub fn cow_load_template(&self, template_name: &str) -> Result<(), String> {
+        let worlds = self.worlds.load();
+        if let Some(world) = worlds
+            .iter()
+            .find(|w| w.get_world_name() == template_name || w.dimension.minecraft_name == template_name)
+        {
+            pumpkin_cow_world::ingest_level_into_templates(template_name, &world.level)?;
+            return Ok(());
+        }
+
+        let base_path = self.basic_config.get_world_path();
+        let candidate = if base_path.file_name().and_then(|n| n.to_str()) == Some(template_name) {
+            base_path
+        } else {
+            base_path.join(template_name)
+        };
+        pumpkin_cow_world::load_template_from_disk(template_name, candidate)?;
+        Ok(())
+    }
+
+    pub fn cow_spawn_instance(
+        self: &Arc<Self>,
+        template_name: &str,
+        instance_id: &str,
+    ) -> Result<Arc<World>, String> {
+        let instance =
+            pumpkin_cow_world::CoWWorldInstance::spawn_from_template(template_name, instance_id)?;
+        let world = self.create_world(instance_id.to_owned(), Dimension::OVERWORLD);
+        instance.bind_to_level(&world.level);
+
+        for entry in &instance.template.chunks {
+            let pos = *entry.key();
+            if let Some(chunk) = pumpkin_world::level::CoWBackend::fetch_chunk(instance.as_ref(), pos) {
+                world.level.loaded_chunks.insert(pos, chunk);
+            }
+        }
+        Ok(world)
+    }
+
+    pub fn cow_reset_instance(&self, instance_id: &str) -> Result<u32, String> {
+        let instance = pumpkin_cow_world::INSTANCES
+            .get(instance_id)
+            .map(|entry| Arc::clone(entry.value()))
+            .ok_or_else(|| format!("CoW instance '{instance_id}' not found"))?;
+
+        let dirty_chunks = instance.reset_instant();
+        let reset_count = dirty_chunks.len() as u32;
+
+        if let Some(world) = self
+            .worlds
+            .load()
+            .iter()
+            .find(|w| w.get_world_name() == instance_id)
+            .cloned()
+        {
+            let entities = world.entities.load_full();
+            for entity in entities.iter() {
+                world.remove_entity(entity.as_ref());
+            }
+
+            let players = world.players.load();
+            for &chunk_pos in &dirty_chunks {
+                world.block_entities.remove(&chunk_pos);
+                world.migrate_pending_block_entities(chunk_pos);
+
+                for player in players.iter() {
+                    player
+                        .chunk_sender
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .enqueue_chunk(chunk_pos);
+                }
+            }
+        }
+
+        Ok(reset_count)
+    }
+
+    pub fn cow_destroy_instance(self: &Arc<Self>, instance_id: &str) -> Result<(), String> {
+        let world_opt = self
+            .worlds
+            .load()
+            .iter()
+            .find(|w| w.get_world_name() == instance_id)
+            .cloned();
+
+        if let Some(world) = &world_opt {
+            let player_count = world.players.load().len();
+            if player_count > 0 {
+                return Err(format!(
+                    "Cannot destroy CoW instance '{instance_id}': {player_count} players are still in this world"
+                ));
+            }
+        }
+
+        let _ = pumpkin_cow_world::destroy_instance(instance_id)?;
+
+        if let Some(world_to_unload) = world_opt {
+            self.worlds.rcu(|w_list| {
+                let mut new_list = (**w_list).clone();
+                new_list.retain(|w| !Arc::ptr_eq(w, &world_to_unload));
+                new_list
+            });
+            self.spawn_task(async move {
+                world_to_unload.shutdown().await;
+                world_to_unload.unload().await;
+            });
+        }
+        Ok(())
+    }
+
     pub fn save_world_info(&self) -> Result<(), WorldInfoError> {
         let level_data = self.level_info.load();
         self.world_info_writer

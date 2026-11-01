@@ -122,7 +122,7 @@ pub use wit::pumpkin::plugin::{
     advancement as advancement_wit, bedrock_packets, block_entity, boss_bar,
     command as command_wit, common,
     context::{self, Context, MarketplaceMetadata, Server},
-    damage_types as damage_types_wit, data_components, datapack as datapack_wit,
+    cow_world, damage_types as damage_types_wit, data_components, datapack as datapack_wit,
     display as display_wit, enchantments as enchantments_wit, entity,
     entity_statuses as entity_statuses_wit,
     entity_types::EntityType,

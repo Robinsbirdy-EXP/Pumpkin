@@ -314,7 +314,7 @@ impl EndGatewayBlockEntity {
                     .block_sections
                     .read()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
-                sections.iter().all(|s| match s {
+                sections.iter().all(|s| match &**s {
                     pumpkin_world::chunk::palette::BlockPalette::Homogeneous(id) => {
                         pumpkin_data::block_properties::is_air(*id)
                     }

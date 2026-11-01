@@ -6583,7 +6583,7 @@ impl World {
         }
     }
 
-    fn migrate_pending_block_entities(&self, chunk_pos: Vector2<i32>) {
+    pub(crate) fn migrate_pending_block_entities(&self, chunk_pos: Vector2<i32>) {
         let positions: Vec<BlockPos> = self
             .level
             .read_chunk_sync(&chunk_pos, |chunk| {

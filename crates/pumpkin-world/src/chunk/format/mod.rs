@@ -1,10 +1,7 @@
 use std::{
     path::PathBuf,
     str::FromStr,
-    sync::{
-        RwLock,
-        atomic::{AtomicBool, AtomicU64, Ordering},
-    },
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 use bytes::{Buf, BufMut, Bytes};
@@ -379,16 +376,11 @@ impl ChunkData {
 
         // Assemble the ChunkSections
         let min_y = section_coords::section_to_block(i32::from(min_y_section));
-        let (random_tick_sections, randomly_ticking_mask) =
-            ChunkSections::build_random_tick_sections_cache(&block_palettes);
-        let section = ChunkSections {
-            count: block_palettes.len(),
-            block_sections: RwLock::new(block_palettes.into_boxed_slice()),
-            random_tick_sections: RwLock::new(random_tick_sections),
-            randomly_ticking_mask: std::sync::atomic::AtomicU32::new(randomly_ticking_mask),
-            biome_sections: RwLock::new(biome_palettes.into_boxed_slice()),
+        let section = ChunkSections::from_palettes(
+            block_palettes.into_boxed_slice(),
+            biome_palettes.into_boxed_slice(),
             min_y,
-        };
+        );
 
         let heightmaps = root_tag.get_compound("Heightmaps").map_or(
             ChunkHeightmaps {
@@ -992,16 +984,11 @@ impl ChunkData {
             sky_lights.push(sky_light);
         }
 
-        let (random_tick_sections, randomly_ticking_mask) =
-            ChunkSections::build_random_tick_sections_cache(&block_palettes);
-        let section = ChunkSections {
-            count: block_palettes.len(),
-            block_sections: RwLock::new(block_palettes.into_boxed_slice()),
-            random_tick_sections: RwLock::new(random_tick_sections),
-            randomly_ticking_mask: std::sync::atomic::AtomicU32::new(randomly_ticking_mask),
-            biome_sections: RwLock::new(biome_palettes.into_boxed_slice()),
+        let section = ChunkSections::from_palettes(
+            block_palettes.into_boxed_slice(),
+            biome_palettes.into_boxed_slice(),
             min_y,
-        };
+        );
         let light_engine = ChunkLight {
             block_light: block_lights.into_boxed_slice(),
             sky_light: sky_lights.into_boxed_slice(),

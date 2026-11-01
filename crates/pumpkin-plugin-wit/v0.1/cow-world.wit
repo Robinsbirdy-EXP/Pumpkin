@@ -1,0 +1,16 @@
+/// Zero-copy Copy-on-Write (CoW) world management interface.
+interface cow-world {
+    /// Loads a world template into the in-memory CoW template registry.
+    load-template: func(template-name: string) -> result<_, string>;
+
+    /// Spawns a new CoW world instance from a loaded template in O(N_chunks) pointer copies.
+    spawn-instance: func(template-name: string, instance-id: string) -> result<_, string>;
+
+    /// Instantly resets all dirty chunks in a CoW world instance, clears non-player entities,
+    /// resets block entities, and resends modified chunks to players.
+    reset-instance: func(instance-id: string) -> result<u32, string>;
+
+    /// Destroys an active CoW world instance and unloads its world.
+    destroy-instance: func(instance-id: string) -> result<_, string>;
+}
+

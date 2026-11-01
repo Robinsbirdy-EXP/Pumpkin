@@ -77,6 +77,8 @@ world plugin {
     import potions;
     /// Provides entity status / animation event types.
     import entity-statuses;
+    /// Provides zero-copy Copy-on-Write world management.
+    import cow-world;
 
     // --- Plugin-provided exports ---
 
