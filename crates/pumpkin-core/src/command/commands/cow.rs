@@ -221,4 +221,3 @@ pub fn register(dispatcher: &mut CommandDispatcher, registry: &PermissionRegistr
             .then(literal("stats").executes(StatsExecutor)),
     );
 }
-

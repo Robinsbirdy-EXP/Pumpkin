@@ -301,11 +301,10 @@ impl ActiveChunk {
                 .heightmap
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner) = template.heightmap.clone();
-            *live
-                .pending_block_entities
+            live.pending_block_entities
                 .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner) =
-                (*template.block_entities).clone();
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone_from(&template.block_entities);
             live.dirty.store(false, Ordering::Relaxed);
         }
     }
@@ -418,7 +417,7 @@ impl CoWWorldInstance {
         Ok(instance)
     }
 
-    /// Binds this CoW instance to a [`Level`] so the level bypasses disk I/O and routes block
+    /// Binds this `CoW` instance to a [`Level`] so the level bypasses disk I/O and routes block
     /// mutations through Copy-on-Write tracking.
     pub fn bind_to_level(self: &Arc<Self>, level: &Arc<Level>) {
         *self.bound_level.write() = Some(Arc::clone(level));
@@ -652,7 +651,6 @@ pub fn load_template_from_disk(
     root_folder: PathBuf,
 ) -> Result<Arc<WorldTemplate>, String> {
     let mut template = WorldTemplate::new(template_name, 24, -64);
-    template.source_path = Some(root_folder.clone());
 
     let candidate_region_dirs = [
         root_folder
@@ -662,6 +660,7 @@ pub fn load_template_from_disk(
             .join("region"),
         root_folder.join("region"),
     ];
+    template.source_path = Some(root_folder);
 
     for region_dir in &candidate_region_dirs {
         if region_dir.exists() {
