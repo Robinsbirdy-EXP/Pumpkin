@@ -1,3 +1,4 @@
+use std::fmt::Write as _;
 use std::time::Instant;
 
 use pumpkin_util::PermissionLvl;
@@ -161,20 +162,22 @@ impl CommandExecutor for StatsExecutor {
             format!("[CoW] Templates: {templates_count}, Active Instances: {instances_count}");
 
         for entry in pumpkin_cow_world::TEMPLATES.iter() {
-            summary.push_str(&format!(
+            let _ = write!(
+                summary,
                 "\n  Template '{}': {} chunks",
                 entry.key(),
                 entry.value().chunks.len()
-            ));
+            );
         }
 
         for entry in pumpkin_cow_world::INSTANCES.iter() {
             let (total_chunks, dirty_chunks) = entry.value().stats();
-            summary.push_str(&format!(
+            let _ = write!(
+                summary,
                 "\n  Instance '{}' (from '{}'): {total_chunks} chunks ({dirty_chunks} dirty)",
                 entry.key(),
                 entry.value().template_name
-            ));
+            );
         }
 
         context.source.send_feedback(
