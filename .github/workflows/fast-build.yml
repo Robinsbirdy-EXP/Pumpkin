@@ -1,0 +1,94 @@
+name: Fast Build (carvEd)
+
+on:
+  push:
+    branches:
+      - feat/cow-world
+      - master
+      - main
+  workflow_dispatch:
+    inputs:
+      target_os:
+        description: "Target OS to build for"
+        required: false
+        default: "both"
+        type: choice
+        options:
+          - both
+          - windows
+          - linux
+      release_lto:
+        description: "LTO mode (off = fastest build, thin = smaller/faster binary)"
+        required: false
+        default: "off"
+        type: choice
+        options:
+          - "off"
+          - thin
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+  # Disable full LTO & use 16 codegen units by default for ~5x faster release linking
+  CARGO_PROFILE_RELEASE_LTO: ${{ inputs.release_lto || 'off' }}
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+  CARGO_PROFILE_RELEASE_DEBUG: "0"
+
+jobs:
+  build:
+    name: Build (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    if: ${{ (inputs.target_os == '' || inputs.target_os == 'both') || inputs.target_os == matrix.filter }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            filter: windows
+            os: windows-latest
+            asset: pumpkin-X64-Windows.exe
+            bin: target/release/pumpkin.exe
+          - name: Linux x64
+            filter: linux
+            os: ubuntu-latest
+            asset: pumpkin-X64-Linux
+            bin: target/release/pumpkin
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry and target build artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: fast-build-${{ matrix.filter }}
+
+      - name: Run pumpkin-cow-world unit tests
+        run: cargo test -p pumpkin-cow-world --locked
+
+      - name: Build pumpkin server binary (release)
+        run: cargo build --bin pumpkin --release --locked
+
+      - name: Prepare binary artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp "${{ matrix.bin }}" "dist/${{ matrix.asset }}"
+
+      - name: Upload compiled binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+          compression-level: 6
+          retention-days: 14
+
