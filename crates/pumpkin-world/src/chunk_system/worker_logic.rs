@@ -127,7 +127,10 @@ pub async fn io_read_work(
                 let chunk = cow
                     .fetch_chunk(pos)
                     .unwrap_or_else(|| crate::chunk::ChunkData::empty_sync(pos.x, pos.y));
-                if send.send((pos, RecvChunk::IO(Chunk::Level(chunk)))).is_err() {
+                if send
+                    .send((pos, RecvChunk::IO(Chunk::Level(chunk))))
+                    .is_err()
+                {
                     break;
                 }
             }

@@ -17,5 +17,4 @@ dashmap.workspace = true
 parking_lot.workspace = true
 bytes.workspace = true
 rustc-hash.workspace = true
-tracing.workspace = true
 

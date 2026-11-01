@@ -3105,7 +3105,6 @@ dependencies = [
  "pumpkin-util",
  "pumpkin-world",
  "rustc-hash",
- "tracing",
 ]
 
 [[package]]

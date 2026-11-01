@@ -338,12 +338,16 @@ impl ChunkSections {
 
     #[must_use]
     pub fn new(num_sections: usize, min_y: i32) -> Self {
-        let block_sections =
-            vec![std::sync::Arc::new(BlockPalette::default()); num_sections].into_boxed_slice();
+        let block_sections = (0..num_sections)
+            .map(|_| std::sync::Arc::new(BlockPalette::default()))
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
         let (random_tick_sections, randomly_ticking_mask) =
             Self::build_random_tick_sections_cache(&block_sections);
-        let biome_sections =
-            vec![std::sync::Arc::new(BiomePalette::default()); num_sections].into_boxed_slice();
+        let biome_sections = (0..num_sections)
+            .map(|_| std::sync::Arc::new(BiomePalette::default()))
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
 
         Self {
             count: num_sections,

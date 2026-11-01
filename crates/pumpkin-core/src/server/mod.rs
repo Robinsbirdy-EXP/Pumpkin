@@ -567,10 +567,9 @@ impl Server {
 
     pub fn cow_load_template(&self, template_name: &str) -> Result<(), String> {
         let worlds = self.worlds.load();
-        if let Some(world) = worlds
-            .iter()
-            .find(|w| w.get_world_name() == template_name || w.dimension.minecraft_name == template_name)
-        {
+        if let Some(world) = worlds.iter().find(|w| {
+            w.get_world_name() == template_name || w.dimension.minecraft_name == template_name
+        }) {
             pumpkin_cow_world::ingest_level_into_templates(template_name, &world.level)?;
             return Ok(());
         }
@@ -597,7 +596,9 @@ impl Server {
 
         for entry in &instance.template.chunks {
             let pos = *entry.key();
-            if let Some(chunk) = pumpkin_world::level::CoWBackend::fetch_chunk(instance.as_ref(), pos) {
+            if let Some(chunk) =
+                pumpkin_world::level::CoWBackend::fetch_chunk(instance.as_ref(), pos)
+            {
                 world.level.loaded_chunks.insert(pos, chunk);
             }
         }

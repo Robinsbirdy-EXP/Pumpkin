@@ -349,12 +349,52 @@ pub struct CoWWorldInstance {
     pub bound_level: RwLock<Option<Arc<Level>>>,
 }
 
+impl std::fmt::Debug for TemplateChunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TemplateChunk")
+            .field("pos", &self.pos)
+            .field("min_y", &self.min_y)
+            .finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Debug for ActiveChunk {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ActiveChunk")
+            .field("pos", &self.pos)
+            .field("dirty", &self.dirty)
+            .finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Debug for WorldTemplate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WorldTemplate")
+            .field("name", &self.name)
+            .field("num_sections", &self.num_sections)
+            .field("min_y", &self.min_y)
+            .finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Debug for CoWWorldInstance {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CoWWorldInstance")
+            .field("instance_id", &self.instance_id)
+            .field("template_name", &self.template_name)
+            .finish_non_exhaustive()
+    }
+}
+
 impl CoWWorldInstance {
     /// Spawns a new [`CoWWorldInstance`] from a registered template in [`TEMPLATES`].
     ///
     /// Clones only the `Arc` pointers from the template into a new `DashMap` (`O(N_chunks)`
     /// pointer copies, zero deep allocations).
-    pub fn spawn_from_template(template_name: &str, instance_id: &str) -> Result<Arc<Self>, String> {
+    pub fn spawn_from_template(
+        template_name: &str,
+        instance_id: &str,
+    ) -> Result<Arc<Self>, String> {
         let template = TEMPLATES
             .get(template_name)
             .map(|entry| Arc::clone(entry.value()))
@@ -557,8 +597,12 @@ pub fn ingest_region_folder_into_template(
     if !region_folder.exists() {
         return Ok(0);
     }
-    let entries = std::fs::read_dir(region_folder)
-        .map_err(|e| format!("Failed reading region folder {}: {e}", region_folder.display()))?;
+    let entries = std::fs::read_dir(region_folder).map_err(|e| {
+        format!(
+            "Failed reading region folder {}: {e}",
+            region_folder.display()
+        )
+    })?;
 
     let mut total_chunks = 0usize;
     for entry in entries.flatten() {

@@ -157,9 +157,8 @@ impl CommandExecutor for StatsExecutor {
         let templates_count = pumpkin_cow_world::TEMPLATES.len();
         let instances_count = pumpkin_cow_world::INSTANCES.len();
 
-        let mut summary = format!(
-            "[CoW] Templates: {templates_count}, Active Instances: {instances_count}"
-        );
+        let mut summary =
+            format!("[CoW] Templates: {templates_count}, Active Instances: {instances_count}");
 
         for entry in pumpkin_cow_world::TEMPLATES.iter() {
             summary.push_str(&format!(
@@ -178,9 +177,10 @@ impl CommandExecutor for StatsExecutor {
             ));
         }
 
-        context
-            .source
-            .send_feedback(TextComponent::text(summary).color_named(NamedColor::Aqua), false);
+        context.source.send_feedback(
+            TextComponent::text(summary).color_named(NamedColor::Aqua),
+            false,
+        );
         Ok(1)
     }
 }
@@ -195,12 +195,9 @@ pub fn register(dispatcher: &mut CommandDispatcher, registry: &PermissionRegistr
     dispatcher.register(
         command("cow", DESCRIPTION)
             .requires(PERMISSION)
-            .then(
-                literal("load").then(
-                    argument("template", StringArgumentType::SingleWord)
-                        .executes(LoadTemplateExecutor),
-                ),
-            )
+            .then(literal("load").then(
+                argument("template", StringArgumentType::SingleWord).executes(LoadTemplateExecutor),
+            ))
             .then(
                 literal("spawn").then(
                     argument("template", StringArgumentType::SingleWord).then(
