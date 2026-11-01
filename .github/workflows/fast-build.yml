@@ -34,7 +34,7 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: "0"
   # Disable full LTO & use 16 codegen units by default for ~5x faster release linking
-  CARGO_PROFILE_RELEASE_LTO: ${{ inputs.release_lto || 'off' }}
+  CARGO_PROFILE_RELEASE_LTO: ${{ github.event.inputs.release_lto || 'off' }}
   CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
   CARGO_PROFILE_RELEASE_DEBUG: "0"
 
@@ -42,18 +42,19 @@ jobs:
   build:
     name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
-    if: ${{ (inputs.target_os == '' || inputs.target_os == 'both') || inputs.target_os == matrix.filter }}
+    if: ${{ !github.event.inputs.target_os || github.event.inputs.target_os == 'both' || github.event.inputs.target_os == matrix.filter }}
     strategy:
       fail-fast: false
       matrix:
+        filter: [windows, linux]
         include:
-          - name: Windows x64
-            filter: windows
+          - filter: windows
+            name: Windows x64
             os: windows-latest
             asset: pumpkin-X64-Windows.exe
             bin: target/release/pumpkin.exe
-          - name: Linux x64
-            filter: linux
+          - filter: linux
+            name: Linux x64
             os: ubuntu-latest
             asset: pumpkin-X64-Linux
             bin: target/release/pumpkin
