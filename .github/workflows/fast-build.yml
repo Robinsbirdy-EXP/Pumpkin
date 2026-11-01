@@ -42,22 +42,18 @@ jobs:
   build:
     name: Build (${{ matrix.name }})
     runs-on: ${{ matrix.os }}
-    if: ${{ !github.event.inputs.target_os || github.event.inputs.target_os == 'both' || github.event.inputs.target_os == matrix.filter }}
     strategy:
       fail-fast: false
       matrix:
-        filter: [windows, linux]
         include:
-          - filter: windows
-            name: Windows x64
-            os: windows-latest
-            asset: pumpkin-X64-Windows.exe
-            bin: target/release/pumpkin.exe
-          - filter: linux
-            name: Linux x64
+          - name: Linux x64
             os: ubuntu-latest
             asset: pumpkin-X64-Linux
             bin: target/release/pumpkin
+          - name: Windows x64
+            os: windows-latest
+            asset: pumpkin-X64-Windows.exe
+            bin: target/release/pumpkin.exe
 
     steps:
       - name: Checkout repository
@@ -71,7 +67,7 @@ jobs:
       - name: Cache Cargo registry and target build artifacts
         uses: Swatinem/rust-cache@v2
         with:
-          key: fast-build-${{ matrix.filter }}
+          key: fast-build-${{ matrix.os }}
 
       - name: Run pumpkin-cow-world unit tests
         run: cargo test -p pumpkin-cow-world --locked
